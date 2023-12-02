@@ -35,9 +35,14 @@ import com.amazonaws.services.ec2.model.DescribeImagesRequest;
 import com.amazonaws.services.ec2.model.DescribeImagesResult;
 import com.amazonaws.services.ec2.model.Image;
 import com.amazonaws.services.ec2.model.Filter;
+import com.amazonaws.services.ec2.model.CreateImageRequest;
+import com.amazonaws.services.ec2.model.CreateImageResult;
+import com.amazonaws.services.ec2.model.CreateTagsRequest;
+import com.amazonaws.services.ec2.model.Tag;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
 import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
 import com.amazonaws.services.simplesystemsmanagement.model.*;
+
 
 public class awsTest {
 
@@ -81,7 +86,8 @@ public class awsTest {
 			System.out.println("  3. start instance               4. available regions      ");
 			System.out.println("  5. stop instance                6. create instance        ");
 			System.out.println("  7. reboot instance              8. list images            ");
-			System.out.println("  9. condor status               99. quit                   ");
+			System.out.println("  9. condor status               10. remame instance                   ");
+			System.out.println(" 11. create image                99. quit                   ");
 			System.out.println("------------------------------------------------------------");
 			
 			System.out.print("Enter an integer: ");
@@ -154,7 +160,33 @@ public class awsTest {
 				CondorStatus(masterinstance_ID, "condor_status");
 				break;
 
-			case 99: 
+			case 10:
+				System.out.print("Enter instance id: ");
+				String renameInstanceId = "";
+				if (id_string.hasNext())
+					renameInstanceId = id_string.nextLine();
+
+				System.out.print("Enter new name: ");
+				String newName = "";
+				if (id_string.hasNext())
+					newName = id_string.nextLine();
+
+				if (!renameInstanceId.isBlank() && !newName.isBlank())
+					renameInstance(renameInstanceId, newName);
+				break;
+
+			case 11:
+				System.out.print("Enter instance id: ");
+				String amiInstanceId = "";
+				if (id_string.hasNext())
+					amiInstanceId = id_string.nextLine();
+
+				if (!amiInstanceId.isBlank())
+					createAmiForInstance(amiInstanceId);
+				break;
+
+
+				case 99:
 				System.out.println("bye!");
 				menu.close();
 				id_string.close();
@@ -397,6 +429,49 @@ public class awsTest {
 			System.out.println("Command output: " + commandInvocationResult.getStandardOutputContent());
 		}
 	}
+
+	public static void renameInstance(String instanceId, String newName) {
+		final AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
+
+		try {
+			CreateTagsRequest createTagsRequest = new CreateTagsRequest()
+					.withResources(instanceId)
+					.withTags(new Tag("Name", newName));
+
+			ec2.createTags(createTagsRequest);
+
+			System.out.printf("인스턴스 %s를 %s(으)로 성공적으로 이름을 변경했습니다.\n", instanceId, newName);
+		} catch (Exception e) {
+			System.out.println("예외 발생: " + e.toString());
+		}
+	}
+
+	public static void createAmiForInstance(String instanceId) {
+		final AmazonEC2 ec2 = AmazonEC2ClientBuilder.defaultClient();
+
+		try {
+			// Scanner를 사용하여 이미지 이름을 입력받음
+			Scanner scanner = new Scanner(System.in);
+			System.out.print("Enter AMI name: ");
+			String amiName = scanner.nextLine();
+			System.out.print("Enter AMI Description: ");
+			String amiDesc = scanner.nextLine();
+
+			CreateImageRequest createImageRequest = new CreateImageRequest()
+					.withInstanceId(instanceId)
+					.withName(amiName)
+					.withDescription(amiDesc)
+					.withNoReboot(false);
+
+			CreateImageResult createImageResult = ec2.createImage(createImageRequest);
+			String imageId = createImageResult.getImageId();
+
+			System.out.printf("인스턴스 %s에 대한 AMI %s를 성공적으로 생성했습니다.\n", instanceId, imageId);
+		} catch (Exception e) {
+			System.out.println("예외 발생: " + e.toString());
+		}
+	}
+
 
 }
 	
