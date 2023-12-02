@@ -9,6 +9,7 @@ package aws;
 */
 import java.util.Iterator;
 import java.util.Scanner;
+import java.util.Collections;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.auth.profile.ProfileCredentialsProvider;
@@ -34,10 +35,14 @@ import com.amazonaws.services.ec2.model.DescribeImagesRequest;
 import com.amazonaws.services.ec2.model.DescribeImagesResult;
 import com.amazonaws.services.ec2.model.Image;
 import com.amazonaws.services.ec2.model.Filter;
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagement;
+import com.amazonaws.services.simplesystemsmanagement.AWSSimpleSystemsManagementClientBuilder;
+import com.amazonaws.services.simplesystemsmanagement.model.*;
 
 public class awsTest {
 
 	static AmazonEC2      ec2;
+	static String masterinstance_ID = "i-0ccd0068a0d11c46c";
 
 	private static void init() throws Exception {
 
@@ -76,7 +81,7 @@ public class awsTest {
 			System.out.println("  3. start instance               4. available regions      ");
 			System.out.println("  5. stop instance                6. create instance        ");
 			System.out.println("  7. reboot instance              8. list images            ");
-			System.out.println("                                 99. quit                   ");
+			System.out.println("  9. condor status               99. quit                   ");
 			System.out.println("------------------------------------------------------------");
 			
 			System.out.print("Enter an integer: ");
@@ -143,6 +148,10 @@ public class awsTest {
 
 			case 8: 
 				listImages();
+				break;
+
+			case 9:
+				CondorStatus(masterinstance_ID, "condor_status");
 				break;
 
 			case 99: 
@@ -331,7 +340,7 @@ public class awsTest {
 		DescribeImagesRequest request = new DescribeImagesRequest();
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
 		
-		request.getFilters().add(new Filter().withName("name").withValues("htcondor-slave-image"));
+		request.getFilters().add(new Filter().withName("name").withValues("aws-htcondor-slave"));
 		request.setRequestCredentialsProvider(credentialsProvider);
 		
 		DescribeImagesResult results = ec2.describeImages(request);
@@ -342,5 +351,52 @@ public class awsTest {
 		}
 		
 	}
+
+	public static void CondorStatus(String instance_ID, String command) {
+		AWSSimpleSystemsManagement ssm = AWSSimpleSystemsManagementClientBuilder.defaultClient();
+
+		SendCommandRequest sendCommandRequest = new SendCommandRequest()
+				.withInstanceIds(instance_ID)
+				.withDocumentName("AWS-RunShellScript")
+				.withParameters(Collections.singletonMap("commands", Collections.singletonList(command)));
+
+		SendCommandResult sendCommandResult = ssm.sendCommand(sendCommandRequest);
+		String commandId = sendCommandResult.getCommand().getCommandId();
+
+		System.out.println("Command sent. Command ID: " + commandId);
+
+		GetCommandInvocationRequest getCommandInvocationRequest = new GetCommandInvocationRequest()
+				.withCommandId(commandId)
+				.withInstanceId(instance_ID);
+
+		GetCommandInvocationResult commandInvocationResult = null;
+		boolean commandExecuted = false;
+
+		while (!commandExecuted) {
+			try {
+				System.out.println("Waiting...");
+				Thread.sleep(3000); // 5초 대기
+				commandInvocationResult = ssm.getCommandInvocation(getCommandInvocationRequest);
+				String status = commandInvocationResult.getStatus();
+				System.out.println("Status : " + status);
+
+				if ("Success".equals(status)) {
+					commandExecuted = true;
+				} else if (!"InProgress".equals(status)) {
+					// "InProgress" 상태가 아닐 때 처리
+					System.out.println("명령어 실행 상태: " + status);
+					System.out.println("에러 메시지: " + commandInvocationResult.getStandardErrorContent());
+					break;
+				}
+			} catch (InterruptedException | AmazonServiceException e) {
+				e.printStackTrace();
+			}
+		}
+
+		if (commandInvocationResult != null) {
+			System.out.println("Command output: " + commandInvocationResult.getStandardOutputContent());
+		}
+	}
+
 }
 	
