@@ -86,7 +86,7 @@ public class awsTest {
 			System.out.println("  3. start instance               4. available regions      ");
 			System.out.println("  5. stop instance                6. create instance        ");
 			System.out.println("  7. reboot instance              8. list images            ");
-			System.out.println("  9. condor status               10. remame instance                   ");
+			System.out.println("  9. condor status               10. remame instance        ");
 			System.out.println(" 11. create image                99. quit                   ");
 			System.out.println("------------------------------------------------------------");
 			
@@ -371,17 +371,16 @@ public class awsTest {
 		
 		DescribeImagesRequest request = new DescribeImagesRequest();
 		ProfileCredentialsProvider credentialsProvider = new ProfileCredentialsProvider();
-		
-		request.getFilters().add(new Filter().withName("name").withValues("aws-htcondor-slave"));
+
+		request.getFilters().add(new Filter().withName("name").withValues("aws-htcondor-*"));
 		request.setRequestCredentialsProvider(credentialsProvider);
-		
+
 		DescribeImagesResult results = ec2.describeImages(request);
-		
+
 		for(Image images :results.getImages()){
 			System.out.printf("[ImageID] %s, [Name] %s, [Owner] %s\n", 
 					images.getImageId(), images.getName(), images.getOwnerId());
 		}
-		
 	}
 
 	public static void CondorStatus(String instance_ID, String command) {
@@ -454,6 +453,7 @@ public class awsTest {
 			Scanner scanner = new Scanner(System.in);
 			System.out.print("Enter AMI name: ");
 			String amiName = scanner.nextLine();
+			amiName = "aws-htcondor-" + amiName;
 			System.out.print("Enter AMI Description: ");
 			String amiDesc = scanner.nextLine();
 
